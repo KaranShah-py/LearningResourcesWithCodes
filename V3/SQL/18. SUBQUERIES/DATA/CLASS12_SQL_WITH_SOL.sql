@@ -1,0 +1,195 @@
+-- USE ROLE 
+USE ROLE ACCOUNTADMIN;
+
+-- USE WAREHOUSE 
+USE WAREHOUSE COMPUTE_WH;
+
+-- CREATING A DATABASE 
+CREATE DATABASE IF NOT EXISTS JOINS_IN_SQL;
+
+-- USE DATABASE 
+USE DATABASE JOINS_IN_SQL;
+
+-- CREATE SCHEMA FOR THE TODAYS CLASS
+CREATE SCHEMA IF NOT EXISTS JOINS_SCHEMA;
+
+-- USE SCHEMA 
+USE SCHEMA JOINS_SCHEMA;
+
+-- CREATING A TABLE NAMED CUSTOMERS
+CREATE TABLE Customers (
+    CustomerID INT PRIMARY KEY,
+    CustomerName VARCHAR(50),
+    Country VARCHAR(50)
+);
+
+-- CREATING A TABLE NAMED ORDERS
+CREATE TABLE Orders (
+    OrderID INT PRIMARY KEY,
+    OrderDate DATE,
+    CustomerID INT,
+    Amount DECIMAL(10, 2),
+    FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID)
+);
+
+-- INSERTING VALUES INSIDE TABLE CUSTOMER
+INSERT INTO Customers (CustomerID, CustomerName, Country)
+VALUES
+(1, 'John Doe', 'USA'),
+(2, 'Jane Smith', 'UK'),
+(3, 'David Brown', 'Canada'),
+(4, 'Emily White', 'Australia'),
+(5, 'Michael Green', 'USA'),
+(6, 'Anna Taylor', 'USA'),
+(7, 'Robert King', 'UK'),
+(8, 'Laura Wilson', 'Australia'),
+(9, 'James Davis', 'Canada'),
+(10, 'Sophia Harris', 'USA'),
+(11, 'Chris Evans', 'Australia'),
+(12, 'Jessica Adams', 'Canada'),
+(13, 'Lucas Black', 'USA'),
+(14, 'Olivia Walker', 'UK'),
+(15, 'Nathan Scott', 'USA'),
+(16, 'Emma Stone', 'Australia'),
+(17, 'Daniel Lewis', 'UK'),
+(18, 'Sophia Clark', 'Canada'),
+(19, 'Liam Johnson', 'Australia'),
+(20, 'Amelia Brown', 'USA');
+
+-- INSERTING VALUES INTO TABLE ORDERS
+INSERT INTO Orders (OrderID, OrderDate, CustomerID, Amount)
+VALUES
+(101, '2025-01-10', 1, 250.75),
+(102, '2025-01-15', 2, 320.00),
+(103, '2025-01-20', 3, 450.50),
+(104, '2025-02-01', 1, 120.90),
+(105, '2025-02-05', 2, 310.50),
+(106, '2025-02-10', NULL, 299.99),
+(107, '2025-02-15', 4, 400.25),
+(108, '2025-02-20', 5, 150.00),
+(109, '2025-02-25', 7, 500.75),
+(110, '2025-03-01', 6, 225.50),
+(111, '2025-03-05', 9, 600.00),
+(112, '2025-03-10', NULL, 450.00),
+(113, '2025-03-12', 8, 350.00),
+(114, '2025-03-15', 11, 520.75),
+(115, '2025-03-18', 12, 310.50),
+(116, '2025-03-20', 15, 230.99),
+(117, '2025-03-22', 13, 150.20),
+(118, '2025-03-25', 14, 475.65),
+(119, '2025-03-26', 15, 540.90),
+(120, '2025-03-28', NULL, 299.00),  -- Another order without a customer
+(121, '2025-03-29', 17, 405.50),
+(122, '2025-03-29', NULL, 675.00),  -- Another order without a customer
+(123, '2025-03-29', 19, 850.00),
+(124, '2025-03-29', 20, 399.99);
+
+
+-- STARTING WITH JOINS
+
+-- INNER JOIN 
+-- QUESTION 1
+/*
+    Find the list of all customers who have placed at least one order.
+*/
+SELECT
+    T1.*,
+    T2.*
+FROM CUSTOMERS AS T1
+JOIN ORDERS AS T2
+ON T1.CUSTOMERID = T2.CUSTOMERID;
+
+-- QUESTION 2
+/*
+    Find the total amount of all orders placed by each customer.
+*/
+SELECT Customers.CustomerID, Customers.CustomerName, SUM(Orders.Amount) AS TotalAmount
+FROM Customers
+INNER JOIN Orders
+ON Customers.CustomerID = Orders.CustomerID
+GROUP BY Customers.CustomerID, Customers.CustomerName;
+
+
+-- QUESTION 3
+/*
+    Find the details of orders placed by customers from the USA.
+*/
+SELECT Customers.CustomerID, Customers.CustomerName, Orders.OrderID, Orders.OrderDate, Orders.Amount
+FROM Customers
+INNER JOIN Orders
+ON Customers.CustomerID = Orders.CustomerID
+WHERE Customers.Country = 'USA';
+
+
+-- LEFT JOIN OR LEFT OUTER JOIN
+
+-- QUESTION 1
+/*
+    Find the list of all customers and their corresponding orders (if any).
+*/
+SELECT
+    T1.CUSTOMERID AS T1_C, 
+    T2.CUSTOMERID AS T2_C
+FROM CUSTOMERS AS T1
+LEFT JOIN ORDERS AS T2
+ON T1.CUSTOMERID = T2.CUSTOMERID;
+
+
+-- QUESTION 2
+/*
+    Find the total number of orders for each customer from USA, including customers who haven't placed any orders.
+    Sort the customers based on the count of their orders in ASC.
+*/
+SELECT 
+    T1.CUSTOMERID, 
+    T1.CUSTOMERNAME, 
+    COUNT(T2.CUSTOMERID) AS TOTAL_ORDERS
+FROM CUSTOMERS AS T1
+LEFT JOIN ORDERS AS T2
+ON T1.CUSTOMERID = T2.CUSTOMERID
+WHERE T1.COUNTRY = 'USA'
+GROUP BY 
+    T1.CUSTOMERID,
+    T1.CUSTOMERNAME
+ORDER BY TOTAL_ORDERS DESC;
+
+
+-- QUESTION 3
+/*
+  Retrieve a list of all customers and the number of their orders, but show only those who have placed fewer than two orders or no orders at all.  
+*/
+SELECT 
+    Customers.CustomerID, 
+    Customers.CustomerName, 
+    COUNT(Orders.OrderID) AS OrderCount
+FROM Customers
+LEFT JOIN Orders
+ON Customers.CustomerID = Orders.CustomerID
+GROUP BY Customers.CustomerID, Customers.CustomerName
+HAVING COUNT(Orders.OrderID) < 2;
+
+
+
+-- QUESTION 4
+/*
+    Write a SQL Query to get the customers from both USA and UK.
+    Note that you have to display the sum of total orders amount for each customer as well. 
+    If the customer has total orders amount as 0 or null then he/she must be assigned with 'No Orders'
+    or else sum of the orders amount.
+*/
+SELECT 
+    Customers.CustomerID, 
+    Customers.CustomerName, 
+    CASE 
+        WHEN SUM(Orders.Amount) IS NULL THEN 'No Orders' 
+        ELSE CAST(SUM(Orders.Amount) AS VARCHAR)
+    END AS Total_Orders,
+    COALESCE(CAST(SUM(Orders.Amount) AS VARCHAR), 'No Orders') AS Total_Orders1
+FROM Customers
+LEFT JOIN Orders
+ON Customers.CustomerID = Orders.CustomerID
+WHERE 
+    CUSTOMERS.COUNTRY IN ('USA', 'UK')
+GROUP BY Customers.CustomerID, Customers.CustomerName
+HAVING TOTAL_ORDERS = 'No Orders';
+

@@ -1,0 +1,311 @@
+-- ASSIGNING THE ACCOUNT TYPE 
+USE ROLE ACCOUNTADMIN;
+
+-- USING THE WAREHOUSE AVAILABLE
+USE WAREHOUSE COMPUTE_WH;
+
+-- CREATING A DATABASE NAMED AS SUBQUERIES_DATABASE
+CREATE DATABASE IF NOT EXISTS Recursive_Database;
+
+-- USING THE DATABASE CREATED
+USE DATABASE Recursive_Database;
+
+-- CREATING A SCHEMA NAMED AS SUBQUERIES_SCHEMA
+CREATE SCHEMA IF NOT EXISTS Recursive_SCHEMA;
+
+-- USING THE SCHEMA CREATED 
+USE SCHEMA Recursive_SCHEMA;
+
+-- Practice Problems 
+-- Department Table
+CREATE OR REPLACE TABLE DEPARTMENTS (
+    DEPT_ID INT,
+    DEPT_NAME STRING
+);
+
+INSERT INTO DEPARTMENTS (DEPT_ID, DEPT_NAME) VALUES
+(1, 'HR'),
+(2, 'Finance'),
+(3, 'IT'),
+(4, 'Marketing'),
+(5, 'Operations');
+
+-- Employee Table
+CREATE OR REPLACE TABLE EMPLOYEES (
+    EMP_ID INT,
+    EMP_NAME STRING,
+    MANAGER_ID INT,
+    DEPT_ID INT,
+    SALARY INT
+);
+
+INSERT INTO EMPLOYEES (EMP_ID, EMP_NAME, MANAGER_ID, DEPT_ID, SALARY) VALUES
+(101, 'Alice',   NULL, 2, 90000),   -- Finance Head
+(102, 'Bob',     101,  2, 60000),
+(103, 'Charlie', 101,  2, 55000),
+(104, 'David',   NULL, 3, 120000),  -- IT Head
+(105, 'Eve',     104,  3, 80000),
+(106, 'Frank',   104,  3, 75000),
+(107, 'Grace',   NULL, 1, 70000),   -- HR Head
+(108, 'Heidi',   107,  1, 50000),
+(109, 'Ivan',    NULL, 4, 95000),   -- Marketing Head
+(110, 'Judy',    109,  4, 60000),
+(111, 'Ken',     104,  3, 85000),
+(112, 'Laura',   109,  4, 72000),
+(113, 'Mallory', 107,  1, 48000),
+(114, 'Niaj',    101,  2, 58000),
+(115, 'Oscar',   104,  3, 93000),
+(116, 'Peggy',   109,  4, 66000),
+(117, 'Quinn',   NULL, 5, 110000),  -- Ops Head
+(118, 'Ruth',    117,  5, 75000),
+(119, 'Sybil',   117,  5, 72000),
+(120, 'Trent',   117,  5, 70000),
+(121, 'Uma',     117,  5, 69000),
+(122, 'Victor',  104,  3, 77000),
+(123, 'Wendy',   107,  1, 52000);
+
+
+-- Problem 1 
+/*
+Problem 1 (Challenging): Second Highest Salary by Department – Without Using MAX() Twice
+
+Question:
+Find the second highest salary in each department. But you cannot simply use MAX() twice.
+Students should use CTEs with window functions (DENSE_RANK() or ROW_NUMBER()) to solve.
+*/
+-- Solution
+WITH ranking_CTE as 
+(
+    SELECT 
+        e.EMP_NAME, 
+        dep.DEPT_NAME,
+        e.SALARY, 
+        DENSE_RANK() OVER(PARTITION BY e.dept_id ORDER BY e.salary DESC) as salary_rank
+    FROM EMPLOYEES AS e
+    JOIN DEPARTMENTS AS dep
+    ON e.dept_id = dep.dept_id
+)
+SELECT 
+    EMP_NAME, 
+    DEPT_NAME, 
+    SALARY
+FROM ranking_cte
+WHERE salary_rank = 2;
+
+
+
+
+
+
+-- Problem 2: Managers Earning Less Than Their Subordinates
+/*
+Question:
+Find all managers who earn less salary than at least one of their direct reports.
+Display:
+    Manager Name
+    Manager Salary
+    Subordinate Name
+    Subordinate Salary
+*/
+-- Solution
+WITH CTE AS 
+(
+    SELECT
+        m.EMP_NAME AS MANAGER, 
+        m.salary AS Manager_salary, 
+        e.EMP_NAME AS REPORTEE_NAME, 
+        e.salary  AS REPORTEE_SALARY
+    FROM EMPLOYEES AS e
+    JOIN EMPLOYEES AS m
+        ON e.manager_id = m.emp_id
+)
+select *
+FROM CTE 
+WHERE REPORTEE_SALARY > MANAGER_SALARY;
+
+
+--
+Recursive CTE 
+-- UNION And UNION ALL 
+-- Contractors Table
+CREATE OR REPLACE TABLE CONTRACTORS (
+    CONTRACTOR_ID INT,
+    CONTRACTOR_NAME STRING,
+    DEPT_ID INT,
+    SALARY INT
+);
+
+INSERT INTO CONTRACTORS (CONTRACTOR_ID, CONTRACTOR_NAME, DEPT_ID, SALARY) VALUES
+(201, 'Alex', 3, 40000),
+(202, 'Brian', 2, 45000),
+(203, 'Cathy', 5, 42000),
+(204, 'Derek', 4, 46000),
+(205, 'Eva',   3, 40000); -- Duplicate salary with Alex to test UNION vs UNION ALL
+
+
+
+-- WHAT IS UNION 
+SELECT 1, 2
+UNION
+SELECT 1, 4; -- Output of this query is added in the above query
+
+
+SELECT 1, 1
+UNION ALL
+SELECT 1, 1;
+
+/*
+Difference between union and union all is that, 
+union removes the duplicate records and only displays the unique records
+wherer as UNION ALL displays all the records irrespective of duplaicates or not. 
+*/
+
+
+-- Practice 
+-- Question: Combine Full-Time Employees and Contractors 1 
+/*
+    Get the list of all people (employees + contractors) working in the company with their name and department.
+*/
+SELECT *
+FROM CONTRACTORS;
+
+SELECT *
+FROM EMPLOYEES;
+
+
+SELECT
+    EMP_NAME, -- CHAR
+    DEPT_ID AS department_id_from_emp
+FROM EMPLOYEES
+-- Output from query 1 
+UNION ALL
+-- Output from Query 2
+SELECT 
+    CONTRACTOR_NAME, -- CHAR 
+    DEPT_ID AS DEPARMEMTN_ID_FROM_CONTRACTS
+FROM CONTRACTORS
+UNION 
+SELECT 'Karan', 1;
+
+-- Behind the scenes 
+/*
+1. Union / Union all check 
+2. 1st query will be considered 
+3. Output of the 1st query will be stored 
+4. 2nd query will be considered 
+5. output of the 2nd query will be stored 
+6. Both the queries will be appened, taking only 1st query's output headers. 
+*/
+
+
+
+-- Important points to consider 
+/*
+    1. Union and Union all require the same number of columns inluded from the queries in the union operation. 
+    2. All the columns must have the same datatype refering to each other in different query. 
+    3. Union will remove the diplicate records and then display the output
+    4. UNION ALL will not remove the duplicates and display the whole output
+*/
+
+
+-- Question 1 
+/*
+    Employees with Salary < 50K OR Contractors with Salary < 50K
+*/
+SELECT
+    EMP_NAME,
+    SALARY
+FROM EMPLOYEES
+WHERE SALARY < 50000
+UNION
+SELECT
+   CONTRACTOR_NAME,
+   SALARY
+FROM CONTRACTORS
+WHERE SALARY < 50000;
+
+
+
+
+-- Recursive CTE 
+-- Syntax to use 
+/*
+    WITH CTE AS (
+        CTE_QUERY_DIFINITON -- BASE QUERY 
+        UNION ALL 
+        RECURSIVE_CTE_LOGIC - THIS WILL BE CALLED AGAIN AND AGAIN 
+    )
+    SELECT *
+    FROM CTE
+*/
+
+
+-- Generating sequence of numbers using CTE 
+SELECT 1 AS NUM
+UNION 
+SELECT 2
+UNION 
+SELECT 3
+UNION 
+SELECT 4
+UNION 
+SELECT 5;
+
+
+/*
+   That I will decide, till what number I need to generate the sequence. 
+   For example, I want to generate a sequence till 10
+   1 - 10 
+*/
+
+-- Question 
+/*
+    Use a recursive CTE to generate numbers from 1 to 10 
+*/
+WITH R_CTE AS (
+    -- BASE CONDITION 
+    SELECT 1 AS N 
+
+    UNION ALL
+
+    -- TERMINATION CONDITION 
+    SELECT
+        N + 1
+    FROM R_CTE
+    WHERE N < 10
+)
+SELECT *
+FROM R_CTE;
+
+
+
+
+/*
+     Write a Recursive CTE to GENERATE even numbers from 1 to 20  
+*/
+WITH R_CTE AS (
+    SELECT 2 AS N 
+
+    UNION ALL 
+
+    SELECT N + 2
+    FROM R_CTE
+    WHERE N < 20
+)
+SELECT *
+FROM R_CTE;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

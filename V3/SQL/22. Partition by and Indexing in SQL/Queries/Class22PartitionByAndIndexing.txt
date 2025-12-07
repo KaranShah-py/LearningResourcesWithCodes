@@ -1,0 +1,183 @@
+-- Creating the database named as optimization_db1
+CREATE DATABASE OPTIMIZATION_DB1;
+USE OPTIMIZATION_DB1;
+
+-- Creating the schema named as optimization_db1_schema
+CREATE SCHEMA OPTMIZATION_DB1_SCHEMA;
+USE OPTMIZATION_DB1_SCHEMA;
+
+
+-- CREATING TABLE NAMED AS ORDERS
+CREATE TABLE IF NOT EXISTS orders (
+	row_id INT, 
+    order_id VARCHAR(255) PRIMARY KEY,
+    customer_id VARCHAR(255),
+    order_status VARCHAR(50),
+    order_purchase_timestamp DATETIME NULL,
+    order_approved_at DATETIME NULL,
+    order_delivered_carrier_date DATETIME NULL,
+    order_delivered_customer_date DATETIME NULL,
+    order_estimated_delivery_date DATETIME NULL
+);
+
+
+
+-- Global data infile = 1 
+SET GLOBAL LOCAL_INFILE = 1;
+-- LOADING DATA INTO THE ORDERS TABLE 
+
+LOAD DATA LOCAL INFILE "\\zzTeaching Content\\SQL Content\\20. Partition by and Indexing in SQL\\Data\\Orders Data.csv"
+INTO TABLE orders
+FIELDS TERMINATED BY ','  -- Comma as the delimiter
+ENCLOSED BY '"'  -- Fields are enclosed in double quotes
+LINES TERMINATED BY '\n'  -- Line breaks for new rows
+IGNORE 1 LINES; -- Skip the header row
+
+
+SELECT *
+FROM ORDERS;
+
+
+SELECT COUNT(*)
+FROM ORDERS;
+
+SELECT *
+FROM ORDERS
+WHERE order_status = 'delivered'
+	AND 
+    row_id > 100;
+
+
+SELECT *
+FROM ORDERS
+WHERE YEAR(ORDER_PURCHASE_TIMESTAMP) = 2016;
+
+SELECT *
+FROM ORDERS
+WHERE YEAR(ORDER_PURCHASE_TIMESTAMP) = 2017;
+
+
+-- SQL 
+-- PARTITION BY 
+CREATE TABLE IF NOT EXISTS orders_PARTITION_BY_RANGE (
+	row_id INT, 
+    order_id VARCHAR(255),
+    customer_id VARCHAR(255),
+    order_status VARCHAR(50),
+    order_purchase_timestamp DATETIME NULL,
+    order_approved_at DATETIME NULL,
+    order_delivered_carrier_date DATETIME NULL,
+    order_delivered_customer_date DATETIME NULL,
+    order_estimated_delivery_date DATETIME NULL
+)
+PARTITION BY RANGE (YEAR(ORDER_PURCHASE_TIMESTAMP)) (
+	PARTITION P2016 VALUES LESS THAN (2017), 
+    PARTITION P2017 VALUES LESS THAN (2018), 
+    PARTITION P2018 VALUES LESS THAN (2019)
+);
+
+
+SELECT *
+FROM INFORMATION_SCHEMA.PARTITIONS
+WHERE TABLE_NAME = 'orders_PARTITION_BY_RANGE';
+
+LOAD DATA LOCAL INFILE "\\zzTeaching Content\\SQL Content\\20. Partition by and Indexing in SQL\\Data\\Orders Data.csv"
+INTO TABLE orders_PARTITION_BY_RANGE
+FIELDS TERMINATED BY ','  -- Comma as the delimiter
+ENCLOSED BY '"'  -- Fields are enclosed in double quotes
+LINES TERMINATED BY '\n'  -- Line breaks for new rows
+IGNORE 1 LINES; -- Skip the header row
+
+
+SELECT *
+FROM orders_PARTITION_BY_RANGE
+WHERE YEAR(ORDER_PURCHASE_TIMESTAMP) =2017;
+
+SELECT *
+FROM ORDERS
+WHERE YEAR(ORDER_PURCHASE_TIMESTAMP) = 2017;
+
+
+SELECT YEAR(ORDER_PURCHASE_TIMESTAMP), COUNT(*)
+FROM ORDERS
+GROUP BY YEAR(ORDER_PURCHASE_TIMESTAMP);
+
+
+
+-- PARTITION BY HASH 
+-- HASH SAYS THAT BASED ON THE COLUMN, AND THE PRIMARY KEY. I WILL LOOK AT THE DATA AND CREATE PARITITON IN SUCH A MANNER THAT EACH PARITTION WILL HAVE 
+-- SAME SIZE OF DATA 
+CREATE TABLE IF NOT EXISTS orders_PARTITION_BY_HASH_1 (
+	row_id INT, 
+    order_id VARCHAR(255),
+    customer_id VARCHAR(255),
+    order_status VARCHAR(50),
+    order_purchase_timestamp DATETIME NOT NULL,
+    order_approved_at DATETIME NULL,
+    order_delivered_carrier_date DATETIME NULL,
+    order_delivered_customer_date DATETIME NULL,
+    order_estimated_delivery_date DATETIME NULL, 
+    PRIMARY KEY (order_purchase_timestamp, order_id)
+)
+PARTITION BY HASH (TO_DAYS(ORDER_PURCHASE_TIMESTAMP))
+PARTITIONS 10;
+
+
+LOAD DATA LOCAL INFILE "\\zzTeaching Content\\SQL Content\\20. Partition by and Indexing in SQL\\Data\\Orders Data.csv"
+INTO TABLE orders_PARTITION_BY_HASH_1
+FIELDS TERMINATED BY ','  -- Comma as the delimiter
+ENCLOSED BY '"'  -- Fields are enclosed in double quotes
+LINES TERMINATED BY '\n'  -- Line breaks for new rows
+IGNORE 1 LINES; -- Skip the header row
+
+
+SELECT *
+FROM INFORMATION_SCHEMA.PARTITIONS
+WHERE TABLE_NAME = 'orders_PARTITION_BY_HASH_1';
+
+
+SELECT *
+FROM ORDERS
+WHERE ORDER_PURCHASE_TIMESTAMP < '2017-10-10';
+
+SELECT *
+FROM orders_PARTITION_BY_HASH_1
+WHERE ORDER_PURCHASE_TIMESTAMP < '2017-10-10';
+
+CREATE TABLE IF NOT EXISTS orders_PARTITION_BY_COMPOSITE (
+	row_id INT, 
+    order_id VARCHAR(255),
+    customer_id VARCHAR(255),
+    order_status VARCHAR(50),
+    order_purchase_timestamp DATETIME NOT NULL,
+    order_approved_at DATETIME NULL,
+    order_delivered_carrier_date DATETIME NULL,
+    order_delivered_customer_date DATETIME NULL,
+    order_estimated_delivery_date DATETIME NULL, 
+    PRIMARY KEY (order_purchase_timestamp, ROW_ID)
+)
+PARTITION BY RANGE (YEAR(ORDER_PURCHASE_TIMESTAMP))
+SUBPARTITION BY HASH (ROW_ID)
+SUBPARTITIONS 4 (
+	PARTITION P2016 VALUES LESS THAN (2017),
+    PARTITION P2017 VALUES LESS THAN (2018),
+    PARTITION P2018 VALUES LESS THAN (2019),
+    PARTITION P2019 VALUES LESS THAN (2020)
+);
+
+
+LOAD DATA LOCAL INFILE "\\zzTeaching Content\\SQL Content\\20. Partition by and Indexing in SQL\\Data\\Orders Data.csv"
+INTO TABLE orders_PARTITION_BY_COMPOSITE
+FIELDS TERMINATED BY ','  -- Comma as the delimiter
+ENCLOSED BY '"'  -- Fields are enclosed in double quotes
+LINES TERMINATED BY '\n'  -- Line breaks for new rows
+IGNORE 1 LINES; -- Skip the header row
+
+SELECT *
+FROM orders_PARTITION_BY_COMPOSITE;
+
+
+SELECT PARTITION_NAME, SUBPARTITION_NAME, PARTITION_METHOD, SUBPARTITION_METHOD, TABLE_ROWS
+FROM INFORMATION_SCHEMA.PARTITIONS
+WHERE TABLE_NAME = 'orders_PARTITION_BY_COMPOSITE';
+

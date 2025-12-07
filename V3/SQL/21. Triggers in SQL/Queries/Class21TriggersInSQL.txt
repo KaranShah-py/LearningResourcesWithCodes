@@ -1,0 +1,264 @@
+-- CREATING A DATABASE NAMED AS SUBQUERIES_DATABASE
+CREATE DATABASE IF NOT EXISTS Triggers_database;
+
+-- USING THE DATABASE CREATED
+USE Triggers_database;
+
+-- CREATING A SCHEMA NAMED AS SUBQUERIES_SCHEMA
+CREATE SCHEMA IF NOT EXISTS Triggers_schema;
+
+-- USING THE SCHEMA CREATED 
+USE Triggers_schema;
+
+
+-- WHAT IS THE MEANING OF TRIGGERS 
+-- LET ME CREATE A WHOLE KIND OF A DATABASE 
+
+
+-- CREATING AN EMPLOYEE TABLE 
+CREATE TABLE EMPLOYEE (
+    id INT AUTO_INCREMENT PRIMARY KEY, 
+    name VARCHAR(100), 
+    designation VARCHAR(100), 
+    salary decimal(10, 2)
+);
+
+INSERT INTO EMPLOYEE VALUES (1, 'Karan Shah', 'CEO', 1000000);
+
+-- what must be the logical / business requirements that must be included while before inserting
+-- scenario 1
+/*
+    Karan in our organization we have the basic salary of 30000 rs.
+*/
+INSERT INTO EMPLOYEE VALUES (2, 'Ram Sharma', 'Data Engineer', 25000);
+
+select *
+from employee;
+
+UPDATE EMPLOYEE
+SET salary = 30000
+WHERE SALARY = 25000;
+
+
+-- TRIGGER 
+-- SYNTAX 
+/*
+    CREATE TRIGGER trigger_name
+    {BEFORE | AFTER} {INSERT | UPDATE | DELETE}
+    ON table_name
+    FOR EACH ROW
+    BEGIN
+        -- trigger logic
+        -- Series of sql statements on 
+    END;
+*/
+
+INSERT INTO EMPLOYEE VALUES (1, 'Karan Shah', 'CEO', 1000000); -- Yes, this can be inserted
+INSERT INTO EMPLOYEE VALUES (2, 'Ram Sharma', 'Data Engineer', 25000); -- no, trigger must do the necessary changes before inserting
+INSERT INTO EMPLOYEE VALUES (3, 'Sagar Pol', 'Data Analyst', 10000); -- no, trigger must do the .....
+
+-- BEFORE INSERT TRIGGER 
+DELIMITER &&
+CREATE TRIGGER basic_salary_check_BI
+BEFORE INSERT 
+ON EMPLOYEE 
+FOR EACH ROW  
+BEGIN
+    -- WE WANT TO NOT INSERT SALARY WHERE SALARY IS LESS THAN 30000
+    -- DML sTAT
+    IF NEW.SALARY  < 30000 
+        THEN SET NEW.SALARY = 30000;
+    END IF;
+END &&
+DELIMITER &&;
+
+-- new is used with insert and update 
+-- old is used with update and delete
+
+INSERT INTO EMPLOYEE VALUES (1, 'Karan Shah', 'CEO', 1000000); -- Yes, this can be inserted
+INSERT INTO EMPLOYEE VALUES (2, 'Ram Sharma', 'Data Engineer', 25000); -- no, trigger must do the necessary changes before inserting
+INSERT INTO EMPLOYEE VALUES (3, 'Sagar Pol', 'Data Analyst', 10000); -- no, trigger must do the .....
+
+
+SELECT *
+FROM EMPLOYEE;
+
+SHOW TRIGGERS;
+
+
+
+
+-- CREATING A LOG TABLE NAMED AS EMPLOYEE_AUDIT 
+CREATE TABLE EMPLOYEE_AUDIT (
+	audit_id INT AUTO_INCREMENT PRIMARY KEY, 
+    action_type VARCHAR(100),
+    emp_id INT, 
+    emp_name VARCHAR(100), 
+    old_salary DECIMAL(10,2), 
+    new_salary DECIMAL(10,2), 
+    changed_at DATETIME
+);
+
+
+-- EMPLOYEE_AUDIT 
+INSERT INTO EMPLOYEE VALUES(4, 'Sid Verma', 'Data Analyst', 40000);
+
+SELECT *
+FROM EMPLOYEE;
+
+SELECT *
+FROM EMPLOYEE_AUDIT;
+
+INSERT INTO EMPLOYEE_AUDIT VALUES(1, 'Insert', 4, 'Sid Verma', 40000, null, now())
+
+INSERT INTO EMPLOYEE VALUES(5, 'Sujit Kumar', 'Data Engineer', 20000);
+-- TRIGGER
+-- AFTER INSERT 
+DELIMITER &&
+CREATE TRIGGER employee_audit_AI
+AFTER INSERT 
+ON EMPLOYEE
+FOR EACH ROW 
+BEGIN
+	INSERT INTO EMPLOYEE_AUDIT 
+    (action_type, emp_id, emp_name, old_salary, new_salary, changed_at)
+    VALUES('Insert', NEW.id, NEW.name, NULL, NEW.salary, NOW());
+END &&
+DELIMITER &&;
+
+
+INSERT INTO EMPLOYEE VALUES(5, 'Sujit Kumar', 'Data Engineer', 20000);
+
+
+SELECT *
+FROM EMPLOYEE;
+
+SELECT *
+FROM EMPLOYEE_AUDIT;
+ 
+
+INSERT INTO EMPLOYEE (name, designation, salary) VALUES('Karan Shah', 'CEO', 100000);
+INSERT INTO EMPLOYEE (name, designation, salary) VALUES('Ram Sharma', 'DE', 20000);
+INSERT INTO EMPLOYEE (name, designation, salary) VALUES('Sujit Kumar', 'DA', 53000);
+INSERT INTO EMPLOYEE (name, designation, salary) VALUES('Sid Verma', 'DE', 15000);
+INSERT INTO EMPLOYEE (name, designation, salary) VALUES('Vinod Jaiswal', 'DE', 30000);
+
+
+-- update the salary 
+
+-- UPDATING A RECORD 
+UPDATE EMPLOYEE 
+SET SALARY = 25000
+WHERE ID = 3;
+
+
+DELIMITER &&
+CREATE TRIGGER EMPLOYEE_SALARY_CHECK_BU
+BEFORE UPDATE 
+ON EMPLOYEE
+FOR EACH ROW 
+BEGIN
+	IF NEW.SALARY < 30000
+    THEN SET NEW.SALARY = OLD.SALARY;
+    END IF;
+END &&
+DELIMITER &&;
+
+SELECT *
+FROM EMPLOYEE;
+
+UPDATE EMPLOYEE 
+SET SALARY = 25000
+WHERE ID = 3;
+
+
+DELIMITER &&
+CREATE TRIGGER employee_audit_AU
+AFTER UPDATE
+ON EMPLOYEE
+FOR EACH ROW 
+BEGIN
+	INSERT INTO EMPLOYEE_AUDIT 
+    (action_type, emp_id, emp_name, old_salary, new_salary, changed_at)
+    VALUES('Update', NEW.id, NEW.name, old.salary, NEW.salary, NOW());
+END &&
+DELIMITER &&;
+
+SELECT *
+FROM EMPLOYEE_AUDIT;
+
+UPDATE EMPLOYEE
+SET SALARY = 50000
+WHERE ID = 4;
+
+
+
+-- before delete 
+-- after delete 
+
+
+-- Always have a backup table 
+CREATE TABLE EMPLOYEE_BACKUP (
+    id INT, 
+    name VARCHAR(100), 
+    designation VARCHAR(100), 
+    salary decimal(10, 2), 
+    deleted_at DATETIME
+);
+
+SELECT *
+FROM EMPLOYEE_BACKUP;
+
+SELECT *
+FROM EMPLOYEE;
+
+-- BEFORE DELETE MAKE SURE TO DO THIS 
+DELIMITER &&
+CREATE TRIGGER employee_backup_BD
+BEFORE DELETE 
+ON EMPLOYEE
+FOR EACH ROW 
+BEGIN
+	INSERT INTO EMPLOYEE_BACKUP
+    (id, name, designation, salary, deleted_at)
+    VALUES (old.id, old.name, old.designation, old.salary, now());
+END &&
+DELIMITER &&;
+
+
+
+SELECT *
+FROM EMPLOYEE;
+
+
+DELETE FROM EMPLOYEE
+WHERE id = 5;
+
+
+
+
+DELIMITER &&
+CREATE TRIGGER employee_audit_AD
+AFTER DELETE
+ON EMPLOYEE
+FOR EACH ROW 
+BEGIN
+	INSERT INTO EMPLOYEE_AUDIT 
+    (action_type, emp_id, emp_name, old_salary, new_salary, changed_at)
+    VALUES('Delete', OLD.id, OLD.name, old.salary, OLD.salary, NOW());
+END &&
+DELIMITER &&;
+
+
+SELECT *
+FROM EMPLOYEE;
+
+SELECT *
+FROM EMPLOYEE_BACKUP;
+
+SELECT *
+FROM EMPLOYEE_AUDIT;
+
+
+DELETE FROM EMPLOYEE
+WHERE id = 1;
